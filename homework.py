@@ -2,15 +2,13 @@ import logging
 import os
 import sys
 import time
-
 from logging import StreamHandler
 
 import requests
 import telegram
-
 from dotenv import load_dotenv
 
-from exceptions import StatusCodeException
+from exceptions import StatusCodeException, VerdictException, KeyException
 
 
 load_dotenv()
@@ -50,7 +48,13 @@ def check_tokens():
 
 def send_message(bot, message):
     """Отправляет сообщение в Telegram чат."""
-    bot.send_message(TELEGRAM_CHAT_ID, message)
+    try:
+        bot.send_message(TELEGRAM_CHAT_ID, message)
+        logging.debug('Сообщение отправлено')
+    except VerdictException:
+        logging.error('не верные данные')
+    except Exception:
+        logging.error('Ошибка отправки сообщения в телеграмм')
 
 
 def get_api_answer(timestamp):
@@ -64,10 +68,11 @@ def get_api_answer(timestamp):
     try:
         response = requests.get(ENDPOINT, HEADERS, payload)
     except requests.RequestException as exc:
-        ...
+        logging.error(f'Получен не корректный ответ от сервера {exc}')
     if response.status_code == requests.codes.ok:
         return response.json()
     else:
+        logging.error('Ответ от сервера не 200')
         raise StatusCodeException('Получен не корректный ответ от сервера')
 
 
@@ -83,10 +88,12 @@ def parse_status(homework):
     """Извлекает статус домашней работы."""
     if 'homework_name' in homework and 'status' in homework:
         homework_name = homework.get('homework_name')
-        verdict = homework.get('status')
+        status = homework.get('status')
+        if status not in HOMEWORK_VERDICTS:
+            raise KeyException('Загрузить работу на проверку')
+        verdict = HOMEWORK_VERDICTS.get(status)
     else:
-        raise KeyError('Некорректный ответ')
-
+        raise KeyException('Отсутствует необходимый ключ в homework')
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
 
@@ -97,8 +104,6 @@ def main():
         sys.exit(0)
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time())
-    ...
-
     while True:
         try:
             response = get_api_answer(timestamp)
