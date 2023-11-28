@@ -33,7 +33,7 @@ HOMEWORK_VERDICTS = {
     'rejected': 'Работа проверена: у ревьюера есть замечания.'
 }
 
-current_status = ''
+
 new_status = ''
 
 logger = logging.getLogger(__name__)
@@ -73,13 +73,18 @@ def get_api_answer(timestamp):
         Возвращаемое значение (str): статус сервиса.
     """
     payload = {'from_date': timestamp}
+    REQUEST_PARAMS = {
+        'endpoint': ENDPOINT,
+        'headers': HEADERS,
+        'from_date': timestamp
+
+    }
     try:
-        logger.debug(f'Отправка запроса к API {ENDPOINT}')
+        logger.debug(f'Отправка запроса к API {REQUEST_PARAMS}')
         response = requests.get(url=ENDPOINT, headers=HEADERS, params=payload)
         if response.status_code == requests.codes.ok:
             return response.json()
-        else:
-            raise StatusCodeException('HTTP response code отличный от 200')
+        raise StatusCodeException('HTTP response code отличный от 200')
     except requests.RequestException as exc:
         logger.error(f'Недоступность ендпоинта домашней работы. {exc}')
 
@@ -151,6 +156,8 @@ def main():
                 send_message(bot, new_status)
         finally:
             time.sleep(RETRY_PERIOD)
+        # Пытаюсь убрать дублирование кода отправки сообщения
+        # в 131 и 148 строке, записав этот код в 152 и pytest начианет ругаться
 
 
 if __name__ == '__main__':
