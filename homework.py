@@ -10,9 +10,8 @@ from dotenv import load_dotenv
 from telegram.error import TelegramError
 
 from exceptions import (
-    EmptyResponceError, KeyException,
-    ResponceKeyError,
-    StatusCodeException, ValueTokensError
+    EmptyResponceError, ResponceKeyError,
+    StatusCodeException, StatusError, ValueTokensError
 )
 
 
@@ -77,7 +76,6 @@ def get_api_answer(timestamp):
         'endpoint': ENDPOINT,
         'headers': HEADERS,
         'from_date': timestamp
-
     }
     try:
         logger.debug(f'Отправка запроса к API {REQUEST_PARAMS}')
@@ -109,12 +107,10 @@ def parse_status(homework):
         homework_name = homework['homework_name']
         status = homework['status']
         if status not in HOMEWORK_VERDICTS:
-            raise KeyException('Неожиданный статус домашней работы')
+            raise StatusError('Неожиданный статус домашней работы')
         verdict = HOMEWORK_VERDICTS.get(status)
         return f'Изменился статус проверки работы "{homework_name}". {verdict}'
-    else:
-        logger.error('Отсутствие ожидаемых ключей в ответе API')
-        raise KeyException('Отсутствует необходимый ключ в homework')
+    raise ResponceKeyError('Отсутствует необходимый ключ в homework')
 
 
 def main():
@@ -139,25 +135,13 @@ def main():
                 send_message(bot, new_status)
             else:
                 logger.error('Отсутствие в ответе новых статусов')
-        except ResponceKeyError:
-            logger.error('Неожиданный тип ключей словаря.')
-        except StatusCodeException:
-            logger.error('Получен HTTP response code отличный от 200')
-        except EmptyResponceError:
-            logger.error('Массив домашней работы пуст.')
-        except KeyError:
-            logger.error('Неожиданный статус домашней работы')
-        except TypeError as error:
-            logger.error(f'Неожиданный тип получен в ответе {error}.')
         except Exception as error:
-            new_status = f'Сбой в работе программы: {error}'
+            new_status = f'Сбой в работе программы: {error}.'
             logger.error(new_status)
             if new_status != old_status:
                 send_message(bot, new_status)
         finally:
             time.sleep(RETRY_PERIOD)
-        # Пытаюсь убрать дублирование кода отправки сообщения
-        # в 131 и 148 строке, записав этот код в 152 и pytest начианет ругаться
 
 
 if __name__ == '__main__':
