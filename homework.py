@@ -68,17 +68,18 @@ def get_api_answer(timestamp):
             timestamp (int): время в сек.
         Возвращаемое значение (str): статус сервиса.
     """
+    payload = {'from_date': timestamp}
     REQUEST_PARAMS = {
         'url': ENDPOINT,
         'headers': HEADERS,
-        'from_date': timestamp
+        'params': payload
     }
     try:
         logger.debug(
             'Отправка запроса к API {url};\nзаголовки: {headers};\n'
-            'параметры {from_date}'.format(**REQUEST_PARAMS)
+            'параметры {params}'.format(**REQUEST_PARAMS)
         )
-        response = requests.get(**REQUEST_PARAMS, params=None)
+        response = requests.get(**REQUEST_PARAMS)
         if response.status_code == requests.codes.ok:
             return response.json()
         raise StatusCodeException('HTTP response code отличный от 200')
