@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from telegram.error import TelegramError
 
 from exceptions import (
-    EmptyResponceError, ResponceKeyError,
+    EmptyResponceError, ResponceKeyError, RequestError,
     StatusCodeException, StatusError, ValueTokensError
 )
 
@@ -31,9 +31,6 @@ HOMEWORK_VERDICTS = {
     'reviewing': 'Работа взята на проверку ревьюером.',
     'rejected': 'Работа проверена: у ревьюера есть замечания.'
 }
-
-
-new_status = ''
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -71,20 +68,22 @@ def get_api_answer(timestamp):
             timestamp (int): время в сек.
         Возвращаемое значение (str): статус сервиса.
     """
-    payload = {'from_date': timestamp}
     REQUEST_PARAMS = {
-        'endpoint': ENDPOINT,
+        'url': ENDPOINT,
         'headers': HEADERS,
         'from_date': timestamp
     }
     try:
-        logger.debug(f'Отправка запроса к API {REQUEST_PARAMS}')
-        response = requests.get(url=ENDPOINT, headers=HEADERS, params=payload)
+        logger.debug(
+            'Отправка запроса к API {url};\nзаголовки: {headers};\n'
+            'параметры {from_date}'.format(**REQUEST_PARAMS)
+        )
+        response = requests.get(**REQUEST_PARAMS, params=None)
         if response.status_code == requests.codes.ok:
             return response.json()
         raise StatusCodeException('HTTP response code отличный от 200')
-    except requests.RequestException as exc:
-        logger.error(f'Недоступность ендпоинта домашней работы. {exc}')
+    except requests.RequestException:
+        raise RequestError('Недоступность ендпоинта домашней работы.')
 
 
 def check_response(response):
@@ -115,14 +114,14 @@ def parse_status(homework):
 
 def main():
     """Основная логика работы бота."""
-    global new_status
+    new_status = ''
     if not check_tokens():
         logger.critical('Отсутствует один из токенов')
         raise ValueTokensError('Отсутствует один из токенов')
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = 0
+    old_status = new_status
     while True:
-        old_status = new_status
         try:
             response = get_api_answer(timestamp)
             timestamp = response.get('current_date', timestamp)
@@ -133,6 +132,7 @@ def main():
                 new_status = 'Статус не обновился'
             if new_status != old_status:
                 send_message(bot, new_status)
+                old_status = new_status
             else:
                 logger.error('Отсутствие в ответе новых статусов')
         except Exception as error:
@@ -140,6 +140,7 @@ def main():
             logger.error(new_status)
             if new_status != old_status:
                 send_message(bot, new_status)
+                old_status = new_status
         finally:
             time.sleep(RETRY_PERIOD)
 
