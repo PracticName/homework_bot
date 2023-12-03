@@ -115,13 +115,12 @@ def parse_status(homework):
 
 def main():
     """Основная логика работы бота."""
-    new_status = ''
     if not check_tokens():
         logger.critical('Отсутствует один из токенов')
         raise ValueTokensError('Отсутствует один из токенов')
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = 0
-    old_status = new_status
+    old_status = ''
     while True:
         try:
             response = get_api_answer(timestamp)
